@@ -1,0 +1,133 @@
+#!/usr/bin/env bpftrace
+
+/*
+ * ebpf_file_access.bt - 敏感文件访问实时监控
+ *
+ * 用途：监控对关键系统文件的访问（读/写/属性变更）
+ * 适用于：openEuler 22.03+ / FusionOS (需内核 BTF 支持)
+ *
+ * 用法：sudo bpftrace ebpf_file_access.bt
+ */
+
+BEGIN {
+    printf("==========================================\n");
+    printf("  eBPF 敏感文件访问监控\n");
+    printf("  按 Ctrl+C 停止\n");
+    printf("==========================================\n\n");
+    printf("%-12s %-6s %-16s %-8s %s\n",
+           "TIME", "PID", "COMM", "ACCESS", "FILE");
+    printf("%-12s %-6s %-16s %-8s %s\n",
+           "------------", "------", "----------------", "--------", "----");
+}
+
+// 监控 /etc/passwd
+tracepoint:syscalls:sys_enter_openat
+/str(args->filename) == "/etc/passwd"/ {
+    @access_by_file["/etc/passwd"] = count();
+    @access_by_comm[comm] = count();
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-8s %s\n", pid, comm, "OPEN", "/etc/passwd");
+}
+
+// 监控 /etc/shadow
+tracepoint:syscalls:sys_enter_openat
+/str(args->filename) == "/etc/shadow"/ {
+    @access_by_file["/etc/shadow"] = count();
+    @access_by_comm[comm] = count();
+    @alert_count["shadow_access"] = count();
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-8s %s\n", pid, comm, "OPEN", "/etc/shadow");
+    printf("  [!] ALERT: /etc/shadow access by pid=%d comm=%s uid=%d\n",
+           pid, comm, uid);
+}
+
+// 监控 /etc/sudoers
+tracepoint:syscalls:sys_enter_openat
+/str(args->filename) == "/etc/sudoers" ||
+ strcontains(str(args->filename), "/etc/sudoers.d/")/ {
+    @access_by_file[str(args->filename)] = count();
+    @access_by_comm[comm] = count();
+    @alert_count["sudoers_access"] = count();
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-8s %s\n", pid, comm, "OPEN", str(args->filename));
+    printf("  [!] ALERT: sudoers access by pid=%d uid=%d\n", pid, uid);
+}
+
+// 监控 SSH 密钥文件
+tracepoint:syscalls:sys_enter_openat
+/strcontains(str(args->filename), ".ssh/authorized_keys") ||
+ strcontains(str(args->filename), ".ssh/id_rsa") ||
+ strcontains(str(args->filename), ".ssh/id_ed25519")/ {
+    @access_by_file[".ssh/keys"] = count();
+    @access_by_comm[comm] = count();
+    @alert_count["ssh_key_access"] = count();
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-8s %s\n", pid, comm, "OPEN", str(args->filename));
+    printf("  [!] SSH KEY: access by pid=%d uid=%d\n", pid, uid);
+}
+
+// 监控 /etc/ssh/sshd_config
+tracepoint:syscalls:sys_enter_openat
+/str(args->filename) == "/etc/ssh/sshd_config"/ {
+    @access_by_file["/etc/ssh/sshd_config"] = count();
+    @access_by_comm[comm] = count();
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-8s %s\n", pid, comm, "OPEN", "/etc/ssh/sshd_config");
+}
+
+// 监控 crontab 文件
+tracepoint:syscalls:sys_enter_openat
+/str(args->filename) == "/etc/crontab" ||
+ strcontains(str(args->filename), "/etc/cron.d/") ||
+ strcontains(str(args->filename), "/var/spool/cron/")/ {
+    @access_by_file["crontab"] = count();
+    @access_by_comm[comm] = count();
+    @alert_count["cron_access"] = count();
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-8s %s\n", pid, comm, "OPEN", str(args->filename));
+    printf("  [!] CRON: crontab access by pid=%d uid=%d\n", pid, uid);
+}
+
+// 监控内核模块目录
+tracepoint:syscalls:sys_enter_openat
+/strcontains(str(args->filename), "/lib/modules/") &&
+ strcontains(str(args->filename), ".ko")/ {
+    @access_by_file["/lib/modules/*.ko"] = count();
+    @access_by_comm[comm] = count();
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-8s %s\n", pid, comm, "OPEN", str(args->filename));
+}
+
+// 监控审计日志本身
+tracepoint:syscalls:sys_enter_openat
+/strcontains(str(args->filename), "/var/log/audit/")/ {
+    @access_by_file["/var/log/audit/"] = count();
+    @access_by_comm[comm] = count();
+    @alert_count["audit_log_access"] = count();
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-8s %s\n", pid, comm, "OPEN", str(args->filename));
+    printf("  [!] AUDIT LOG: access by pid=%d uid=%d\n", pid, uid);
+}
+
+END {
+    printf("\n==========================================\n");
+    printf("  统计汇总\n");
+    printf("==========================================\n\n");
+
+    printf("--- 按文件统计访问次数 ---\n");
+    print(@access_by_file);
+
+    printf("\n--- 按进程统计访问次数 (Top 20) ---\n");
+    print(@access_by_comm, 20);
+
+    printf("\n--- 告警事件统计 ---\n");
+    if (count(@alert_count) > 0) {
+        print(@alert_count);
+    } else {
+        printf("  (无告警)\n");
+    }
+
+    printf("\n==========================================\n");
+    printf("  监控结束\n");
+    printf("==========================================\n");
+}

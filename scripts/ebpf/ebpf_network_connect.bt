@@ -1,0 +1,119 @@
+#!/usr/bin/env bpftrace
+
+/*
+ * ebpf_network_connect.bt - 网络连接实时追踪
+ *
+ * 用途：追踪所有 TCP 连接建立事件，记录源/目标地址和端口
+ * 适用于：openEuler 22.03+ / FusionOS (需内核 BTF 支持)
+ *
+ * 用法：sudo bpftrace ebpf_network_connect.bt
+ */
+
+BEGIN {
+    printf("==========================================\n");
+    printf("  eBPF 网络连接追踪\n");
+    printf("  按 Ctrl+C 停止\n");
+    printf("==========================================\n\n");
+    printf("%-12s %-6s %-16s %-8s %-22s %-22s\n",
+           "TIME", "PID", "COMM", "PROTO", "SOURCE", "DESTINATION");
+    printf("%-12s %-6s %-16s %-8s %-22s %-22s\n",
+           "------------", "------", "----------------", "--------",
+           "----------------------", "----------------------");
+}
+
+kprobe:tcp_connect {
+    $sk = (struct sock *)arg0;
+
+    // 提取源地址和端口
+    $saddr = ntop($sk->__sk_common.skc_rcv_saddr);
+    $sport = $sk->__sk_common.skc_num;
+
+    // 提取目标地址和端口
+    $daddr = ntop($sk->__sk_common.skc_daddr);
+    $dport = $sk->__sk_common.skc_dport;
+
+    // 统计计数
+    @conn_by_comm[comm] = count();
+    @conn_by_dport[ntohs($dport)] = count();
+    @conn_by_uid[uid] = count();
+
+    // 输出连接信息
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-8s %s:%-5d -> %s:%-5d\n",
+           pid, comm, "TCP", $saddr, $sport, $daddr, ntohs($dport));
+
+    // 标记非标准端口
+    if (ntohs($dport) != 22 &&
+        ntohs($dport) != 80 &&
+        ntohs($dport) != 443 &&
+        ntohs($dport) != 53) {
+        @non_standard_port[ntohs($dport)] = count();
+        printf("  [!] NON-STANDARD PORT: %d (pid=%d comm=%s uid=%d)\n",
+               ntohs($dport), pid, comm, uid);
+    }
+
+    // 标记 root 用户的外连
+    if (uid == 0) {
+        @root_connects[comm] = count();
+        printf("  [!] ROOT CONNECT: uid=0 pid=%d\n", pid);
+    }
+
+    // 标记来自临时目录的进程
+    if (strcontains(comm, "tmp") || strcontains(comm, "shm")) {
+        @suspicious_proc[comm] = count();
+        printf("  [!] SUSPICIOUS PROCESS: %s connecting to %s:%d\n",
+               comm, $daddr, ntohs($dport));
+    }
+}
+
+kprobe:tcp_close {
+    $sk = (struct sock *)arg0;
+    $daddr = ntop($sk->__sk_common.skc_daddr);
+    $dport = $sk->__sk_common.skc_dport;
+
+    // 仅记录非正常关闭
+    // (可选：取消注释以追踪所有关闭)
+    // time("%H:%M:%S");
+    // printf(" %-6d %-16s %-8s -> %s:%-5d\n",
+    //        pid, comm, "CLOSE", $daddr, ntohs($dport));
+}
+
+END {
+    printf("\n==========================================\n");
+    printf("  统计汇总\n");
+    printf("==========================================\n\n");
+
+    printf("--- 按进程统计连接数 (Top 20) ---\n");
+    print(@conn_by_comm, 20);
+
+    printf("\n--- 按目标端口统计连接数 (Top 20) ---\n");
+    print(@conn_by_dport, 20);
+
+    printf("\n--- 按 UID 统计连接数 ---\n");
+    print(@conn_by_uid);
+
+    printf("\n--- 非标准端口连接 ---\n");
+    if (count(@non_standard_port) > 0) {
+        print(@non_standard_port);
+    } else {
+        printf("  (无)\n");
+    }
+
+    printf("\n--- Root 用户连接 ---\n");
+    if (count(@root_connects) > 0) {
+        print(@root_connects);
+    } else {
+        printf("  (无)\n");
+    }
+
+    printf("\n--- 可疑进程连接 ---\n");
+    if (count(@suspicious_proc) > 0) {
+        print(@suspicious_proc);
+    } else {
+        printf("  (无)\n");
+    }
+
+    printf("\n==========================================\n");
+    printf("  追踪结束\n");
+    printf("==========================================\n");
+}

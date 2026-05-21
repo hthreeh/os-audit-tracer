@@ -1,0 +1,84 @@
+#!/usr/bin/env bpftrace
+
+/*
+ * ebpf_process_trace.bt - 实时进程执行追踪
+ *
+ * 用途：追踪所有进程执行事件，记录父进程、命令行、用户等信息
+ * 适用于：openEuler 22.03+ / FusionOS (需内核 BTF 支持)
+ *
+ * 用法：sudo bpftrace ebpf_process_trace.bt
+ * 用法（带过滤）：sudo bpftrace ebpf_process_trace.bt --filter='comm != "bpftrace"'
+ */
+
+BEGIN {
+    printf("==========================================\n");
+    printf("  eBPF 进程执行追踪\n");
+    printf("  按 Ctrl+C 停止\n");
+    printf("==========================================\n\n");
+    printf("%-12s %-6s %-6s %-16s %-16s %s\n",
+           "TIME", "PID", "PPID", "COMM", "PARENT_COMM", "FILENAME");
+    printf("%-12s %-6s %-6s %-16s %-16s %s\n",
+           "------------", "------", "------", "----------------",
+           "----------------", "----");
+}
+
+tracepoint:syscalls:sys_enter_execve {
+    $ts = nsecs;
+    $pid = pid;
+    $ppid = curtask->parent->tgid;
+    $comm = comm;
+    $parent_comm = curtask->parent->comm;
+    $filename = str(args->filename);
+    $uid = uid;
+
+    // 统计计数
+    @exec_count_by_comm[comm] = count();
+    @exec_count_by_uid[uid] = count();
+
+    // 获取当前时间
+    time("%H:%M:%S");
+
+    printf(" %-6d %-6d %-16s %-16s %s\n",
+           $pid, $ppid, $comm, $parent_comm, $filename);
+
+    // 如果是 root 用户执行，标记
+    if ($uid == 0 && $ppid != 1) {
+        printf("  [!] ROOT EXEC: uid=%d ppid=%d\n", $uid, $ppid);
+    }
+
+    // 如果从临时目录执行，标记
+    if (strcontains($filename, "/tmp/") ||
+        strcontains($filename, "/dev/shm/") ||
+        strcontains($filename, "/var/tmp/")) {
+        @exec_from_tmp[comm] = count();
+        printf("  [!] SUSPICIOUS PATH: %s\n", $filename);
+    }
+}
+
+tracepoint:syscalls:sys_exit_execve /args->ret != 0/ {
+    printf("[%s] EXEC FAILED: pid=%d comm=%s ret=%d\n",
+           strftime("%H:%M:%S", nsecs), pid, comm, args->ret);
+}
+
+END {
+    printf("\n==========================================\n");
+    printf("  统计汇总\n");
+    printf("==========================================\n\n");
+
+    printf("--- 按进程名统计 (Top 20) ---\n");
+    print(@exec_count_by_comm, 20);
+
+    printf("\n--- 按 UID 统计 ---\n");
+    print(@exec_count_by_uid);
+
+    printf("\n--- 从临时目录执行的进程 ---\n");
+    if (count(@exec_from_tmp) > 0) {
+        print(@exec_from_tmp);
+    } else {
+        printf("  (无)\n");
+    }
+
+    printf("\n==========================================\n");
+    printf("  追踪结束\n");
+    printf("==========================================\n");
+}

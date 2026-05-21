@@ -1,0 +1,167 @@
+[
+  {
+    "id": "eval-001",
+    "name": "审计规则部署",
+    "description": "测试 Skill 能否根据用户需求生成正确的审计规则",
+    "prompt": "帮我为 openEuler 配置等保三级审计规则",
+    "expected_behavior": [
+      "调用 detect_platform.sh 检测平台",
+      "调用 audit_setup.sh --profile standard 部署规则",
+      "生成覆盖身份鉴别、访问控制、安全审计等类别的规则",
+      "输出规则部署结果和验证命令"
+    ],
+    "assertions": [
+      "response contains 'audit_setup.sh'",
+      "response mentions 'openEuler'",
+      "response includes audit rule categories",
+      "response provides verification command (auditctl -l)"
+    ]
+  },
+  {
+    "id": "eval-002",
+    "name": "异常登录检测",
+    "description": "测试 Skill 能否正确检测和分析异常登录行为",
+    "prompt": "系统最近有异常登录，请帮我检查认证日志",
+    "expected_behavior": [
+      "调用 trace_auth_events.sh 分析认证日志",
+      "检查暴力破解、异常时间登录、异常 IP",
+      "输出登录事件统计和异常列表",
+      "给出风险评级和处置建议"
+    ],
+    "assertions": [
+      "response references '/var/log/secure' or 'ausearch'",
+      "response mentions failed login analysis",
+      "response includes IP or time-based anomaly detection",
+      "response provides risk assessment"
+    ]
+  },
+  {
+    "id": "eval-003",
+    "name": "入侵事件追溯",
+    "description": "测试 Skill 能否完整追溯入侵事件的攻击链",
+    "prompt": "系统疑似被入侵，请帮我追溯攻击者操作",
+    "expected_behavior": [
+      "保护现场，备份审计日志",
+      "确定时间窗口和攻击来源",
+      "收集多源日志（audit.log, secure, messages）",
+      "构建时间线",
+      "还原攻击链",
+      "生成证据链"
+    ],
+    "assertions": [
+      "response mentions '时间线' or 'timeline'",
+      "response references multiple log sources",
+      "response includes attack chain analysis",
+      "response mentions evidence chain (证据链)"
+    ]
+  },
+  {
+    "id": "eval-004",
+    "name": "文件篡改检测",
+    "description": "测试 Skill 能否检测关键系统文件的篡改",
+    "prompt": "检查系统关键文件是否被篡改",
+    "expected_behavior": [
+      "执行 RPM 完整性验证",
+      "检查 /etc/passwd, /etc/shadow 等关键文件",
+      "检查 SUID/SGID 文件异常",
+      "检查 ld.so.preload 等后门特征",
+      "输出检测结果和风险评级"
+    ],
+    "assertions": [
+      "response mentions 'rpm -Va' or RPM verification",
+      "response checks /etc/passwd and /etc/shadow",
+      "response includes SUID file check",
+      "response provides risk assessment"
+    ]
+  },
+  {
+    "id": "eval-005",
+    "name": "命令历史追溯",
+    "description": "测试 Skill 能否追溯特定用户的命令执行历史",
+    "prompt": "帮我查 admin 用户在 2024-01-15 执行了哪些命令",
+    "expected_behavior": [
+      "调用 trace_command_history.sh -u admin -S 2024-01-15 -E 2024-01-16",
+      "从 audit.log 和 .bash_history 收集命令",
+      "检查可疑命令模式",
+      "输出命令执行时间线"
+    ],
+    "assertions": [
+      "response references 'trace_command_history.sh' or 'ausearch -m EXECVE'",
+      "response filters by user 'admin'",
+      "response includes time-based filtering",
+      "response mentions command timeline"
+    ]
+  },
+  {
+    "id": "eval-006",
+    "name": "合规审计",
+    "description": "测试 Skill 能否执行等保三级合规检查",
+    "prompt": "请帮我做一次等保三级合规检查",
+    "expected_behavior": [
+      "调用 compliance_check.sh",
+      "检查 30 项核心技术检查项",
+      "输出合规率和详细结果",
+      "生成合规报告"
+    ],
+    "assertions": [
+      "response mentions 'compliance_check.sh' or 'GB/T 22239'",
+      "response includes check categories (身份鉴别, 访问控制, 安全审计等)",
+      "response provides compliance rate",
+      "response mentions report generation"
+    ]
+  },
+  {
+    "id": "eval-007",
+    "name": "综合异常扫描",
+    "description": "测试 Skill 能否执行全面的异常行为扫描",
+    "prompt": "帮我全面扫描系统异常行为",
+    "expected_behavior": [
+      "调用 anomaly_scanner.sh",
+      "执行 7 类异常检测（认证、特权、文件、进程、网络、配置、审计系统）",
+      "计算风险评分",
+      "输出综合安全评估"
+    ],
+    "assertions": [
+      "response mentions 'anomaly_scanner.sh'",
+      "response covers multiple detection categories",
+      "response includes risk scoring",
+      "response provides overall security assessment"
+    ]
+  },
+  {
+    "id": "eval-008",
+    "name": "安全事件报告",
+    "description": "测试 Skill 能否生成结构化的安全事件报告",
+    "prompt": "根据审计日志生成一份安全事件报告",
+    "expected_behavior": [
+      "收集审计日志数据",
+      "分析异常事件",
+      "使用 incident-report-template.md 模板",
+      "生成包含时间线、攻击链、证据链的报告"
+    ],
+    "assertions": [
+      "response mentions report template",
+      "response includes incident timeline",
+      "response mentions evidence chain",
+      "response provides remediation recommendations"
+    ]
+  },
+  {
+    "id": "eval-009",
+    "name": "eBPF 实时监控",
+    "description": "测试 Skill 能否使用 eBPF 进行实时行为监控",
+    "prompt": "用 eBPF 实时监控系统中的可疑进程和网络连接",
+    "expected_behavior": [
+      "调用 ebpf_realtime_monitor.sh --check 检查环境",
+      "检查内核版本、BTF 支持、bpftrace 安装",
+      "启动 ebpf_process_trace.bt 和 ebpf_network_connect.bt",
+      "输出实时监控信息"
+    ],
+    "assertions": [
+      "response mentions 'ebpf_realtime_monitor.sh' or 'bpftrace'",
+      "response includes environment check (kernel version, BTF)",
+      "response mentions process and network monitoring",
+      "response describes eBPF probe types used"
+    ]
+  }
+]

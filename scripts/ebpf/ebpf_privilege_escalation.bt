@@ -1,0 +1,177 @@
+#!/usr/bin/env bpftrace
+
+/*
+ * ebpf_privilege_escalation.bt - 提权行为实时检测
+ *
+ * 用途：检测潜在的权限提升行为（setuid, setgid, capability 变更）
+ * 适用于：openEuler 22.03+ / FusionOS (需内核 BTF 支持)
+ *
+ * 用法：sudo bpftrace ebpf_privilege_escalation.bt
+ */
+
+BEGIN {
+    printf("==========================================\n");
+    printf("  eBPF 提权行为检测\n");
+    printf("  按 Ctrl+C 停止\n");
+    printf("==========================================\n\n");
+    printf("%-12s %-6s %-16s %-12s %s\n",
+           "TIME", "PID", "COMM", "SYSCALL", "DETAILS");
+    printf("%-12s %-6s %-16s %-12s %s\n",
+           "------------", "------", "----------------", "------------", "----");
+}
+
+// 监控 setuid 调用
+tracepoint:syscalls:sys_enter_setuid {
+    $old_uid = uid;
+    $new_uid = args->uid;
+    @syscall_count["setuid"] = count();
+    @syscall_by_comm[comm] = count();
+
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-12s old_uid=%d -> new_uid=%d\n",
+           pid, comm, "setuid", $old_uid, $new_uid);
+
+    if ($old_uid != 0 && $new_uid == 0) {
+        @alert_count["uid_to_root"] = count();
+        printf("  [!] ALERT: UID change to root! pid=%d comm=%s\n", pid, comm);
+    }
+}
+
+// 监控 setgid 调用
+tracepoint:syscalls:sys_enter_setgid {
+    $old_gid = gid;
+    $new_gid = args->gid;
+    @syscall_count["setgid"] = count();
+    @syscall_by_comm[comm] = count();
+
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-12s old_gid=%d -> new_gid=%d\n",
+           pid, comm, "setgid", $old_gid, $new_gid);
+
+    if ($old_gid != 0 && $new_gid == 0) {
+        @alert_count["gid_to_root"] = count();
+        printf("  [!] ALERT: GID change to root! pid=%d comm=%s\n", pid, comm);
+    }
+}
+
+// 监控 setreuid 调用
+tracepoint:syscalls:sys_enter_setreuid {
+    @syscall_count["setreuid"] = count();
+    @syscall_by_comm[comm] = count();
+
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-12s ruid=%d euid=%d\n",
+           pid, comm, "setreuid", args->ruid, args->euid);
+
+    if (args->euid == 0 && uid != 0) {
+        @alert_count["euid_to_root"] = count();
+        printf("  [!] ALERT: Effective UID set to root! pid=%d comm=%s\n",
+               pid, comm);
+    }
+}
+
+// 监控 setregid 调用
+tracepoint:syscalls:sys_enter_setregid {
+    @syscall_count["setregid"] = count();
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-12s rgid=%d egid=%d\n",
+           pid, comm, "setregid", args->rgid, args->egid);
+}
+
+// 监控 setresuid 调用
+tracepoint:syscalls:sys_enter_setresuid {
+    @syscall_count["setresuid"] = count();
+    @syscall_by_comm[comm] = count();
+
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-12s ruid=%d euid=%d suid=%d\n",
+           pid, comm, "setresuid", args->ruid, args->euid, args->suid);
+
+    if (args->euid == 0 && uid != 0) {
+        @alert_count["euid_to_root"] = count();
+        printf("  [!] ALERT: Effective UID set to root via setresuid! pid=%d\n",
+               pid);
+    }
+}
+
+// 监控 setresgid 调用
+tracepoint:syscalls:sys_enter_setresgid {
+    @syscall_count["setresgid"] = count();
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-12s rgid=%d egid=%d sgid=%d\n",
+           pid, comm, "setresgid", args->rgid, args->egid, args->sgid);
+}
+
+// 监控 sudo/su 执行
+tracepoint:syscalls:sys_enter_execve
+/(strcontains(str(args->filename), "/sudo") ||
+  strcontains(str(args->filename), "/su"))/ {
+    @syscall_count["sudo/su_exec"] = count();
+    @syscall_by_comm[comm] = count();
+
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-12s %s\n",
+           pid, comm, "EXEC", str(args->filename));
+
+    if (uid != 0) {
+        @alert_count["priv_esc_exec"] = count();
+        printf("  [!] PRIV ESC: non-root user (uid=%d) executing %s\n",
+               uid, str(args->filename));
+    }
+}
+
+// 监控 capability 相关系统调用
+tracepoint:syscalls:sys_enter_capset {
+    @syscall_count["capset"] = count();
+    @alert_count["capset"] = count();
+
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-12s capset operation\n", pid, comm);
+    printf("  [!] ALERT: capability set modification by pid=%d uid=%d\n",
+           pid, uid);
+}
+
+// 监控 ptrace（可用于进程注入）
+tracepoint:syscalls:sys_enter_ptrace {
+    @syscall_count["ptrace"] = count();
+    @alert_count["ptrace"] = count();
+
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-12s request=%ld pid=%ld\n",
+           pid, comm, "ptrace", args->request, args->pid);
+    printf("  [!] ALERT: ptrace detected! possible process injection\n");
+}
+
+// 监控内核模块加载
+tracepoint:syscalls:sys_enter_finit_module {
+    @syscall_count["finit_module"] = count();
+    @alert_count["module_load"] = count();
+
+    time("%H:%M:%S");
+    printf(" %-6d %-16s %-12s fd=%d\n",
+           pid, comm, "finit_module", args->fd);
+    printf("  [!] ALERT: kernel module loading by pid=%d uid=%d\n", pid, uid);
+}
+
+END {
+    printf("\n==========================================\n");
+    printf("  统计汇总\n");
+    printf("==========================================\n\n");
+
+    printf("--- 按系统调用统计 ---\n");
+    print(@syscall_count);
+
+    printf("\n--- 按进程统计 (Top 20) ---\n");
+    print(@syscall_by_comm, 20);
+
+    printf("\n--- 告警事件统计 ---\n");
+    if (count(@alert_count) > 0) {
+        print(@alert_count);
+    } else {
+        printf("  (无告警)\n");
+    }
+
+    printf("\n==========================================\n");
+    printf("  检测结束\n");
+    printf("==========================================\n");
+}
