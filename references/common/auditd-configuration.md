@@ -32,7 +32,7 @@
 |------|------|----------|
 | auditd | 审计守护进程，收集内核审计事件 | `/etc/audit/auditd.conf` |
 | auditctl | 运行时控制审计规则 | `/etc/audit/rules.d/audit.rules` |
-| audispd | 审计调度守护进程，实时处理事件 | `/etc/audisp/audispd.conf` |
+| audispd | 审计调度守护进程，实时处理事件 | `/etc/audit/audispd.conf`（auditd 3.x）或 `/etc/audisp/audispd.conf`（旧版） |
 | ausearch | 搜索审计日志 | - |
 | aureport | 生成审计报告 | - |
 
@@ -123,8 +123,9 @@ sendmail = /usr/sbin/sendmail
 #     always,entry: 系统调用进入时始终记录
 #     task: 任务创建时记录
 # -F: 过滤条件
-#     arch=b64: 64 位架构
-#     arch=b32: 32 位架构
+#     arch=b64: x86_64 架构（仅适用于 x86 平台）
+#     arch=b32: i386 架构（仅适用于 x86 平台）
+#     arch=aarch64: ARM64 架构
 #     uid=0: root 用户
 #     success=1: 成功的操作
 # -S: 要监控的系统调用
@@ -138,9 +139,9 @@ sendmail = /usr/sbin/sendmail
 -F arch=b64
 
 # ARM64 (aarch64) 系统
--F arch=b64
+-F arch=aarch64
 
-# 同时监控 32 位和 64 位
+# x86_64 同时监控 32 位和 64 位
 -F arch=b64 -S execve -k exec_64
 -F arch=b32 -S execve -k exec_32
 ```
@@ -154,6 +155,8 @@ sendmail = /usr/sbin/sendmail
 5. **备份规则**：修改前备份 `/etc/audit/rules.d/`
 
 ## 4. 标准审计规则集
+
+> **架构说明**：以下规则均以 x86_64 (`arch=b64`) 为例。在 aarch64 系统上需将 `arch=b64` 替换为 `arch=aarch64`。
 
 ### identity（身份认证）
 
@@ -303,7 +306,7 @@ sendmail = /usr/sbin/sendmail
     notifempty
     create 0600 root root
     postrotate
-        /sbin/service auditd restart 2>/dev/null || true
+        systemctl restart auditd 2>/dev/null || /sbin/service auditd restart 2>/dev/null || true
     endscript
 }
 ```
@@ -314,6 +317,7 @@ sendmail = /usr/sbin/sendmail
 
 ```
 # 转发审计日志到远程服务器
+# @@ 表示 TCP 协议，@ 表示 UDP 协议
 local6.* @@logserver.example.com:514
 ```
 
@@ -353,7 +357,9 @@ auditctl -d -w /etc/passwd -p wa -k identity
 du -sh /var/log/audit/
 
 # 手动轮转
-service auditd rotate
+systemctl kill -s SIGUSR1 auditd  # systemd 方式
+# 或
+service auditd rotate  # SysVinit 方式
 
 # 清理旧日志
 find /var/log/audit/ -name "*.gz" -mtime +30 -delete

@@ -99,8 +99,8 @@ ausearch -ua {username} -m EXECVE -ts "$START_TIME" -te "$END_TIME" | grep -iE "
 #### 2.4 登录行为
 
 ```bash
-# 登录历史
-last -ai {username} --since "$START_TIME"
+# 登录历史（--since 需 GNU coreutils，备选 last -t YYYYMMDDHHMMSS）
+last -ai {username} --since "$START_TIME" 2>/dev/null || last -ai {username}
 
 # 登录来源 IP
 last -ai {username} | awk '{print $NF}' | sort | uniq -c | sort -rn

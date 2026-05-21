@@ -93,7 +93,7 @@ END {
     print(@conn_by_uid);
 
     printf("\n--- 非标准端口连接 ---\n");
-    if (count(@non_standard_port) > 0) {
+    if (@non_standard_port > 0) {
         print(@non_standard_port);
     } else {
         printf("  (无)\n");

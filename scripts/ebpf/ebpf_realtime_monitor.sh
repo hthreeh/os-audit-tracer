@@ -145,12 +145,16 @@ check_kernel_modules() {
     echo ""
     echo "--- 内核模块检查 ---"
 
-    local modules=("bpf" "tracepoint" "kprobe")
-    for mod in "${modules[@]}"; do
-        if lsmod | grep -q "$mod" || [ -d "/sys/kernel/btf" ]; then
-            echo -e "${GREEN}[PASS]${NC} $mod 支持可用"
-        fi
-    done
+    # bpf/tracepoint/kprobe 是内核内建功能，不是可加载模块，检查 /sys/kernel/btf 和 /sys/kernel/debug/tracing
+    if [ -d "/sys/kernel/btf" ]; then
+        echo -e "${GREEN}[PASS]${NC} BTF 支持可用（BPF CO-RE）"
+    fi
+    if [ -d "/sys/kernel/debug/tracing" ] || [ -d "/sys/kernel/tracing" ]; then
+        echo -e "${GREEN}[PASS]${NC} tracepoint/kprobe 支持可用"
+    fi
+    if [ -f "/proc/config.gz" ] && zcat /proc/config.gz | grep -q "CONFIG_BPF=y"; then
+        echo -e "${GREEN}[PASS]${NC} BPF 内核支持已启用"
+    fi
 }
 
 # --- 监控启动函数 ---

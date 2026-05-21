@@ -33,7 +33,7 @@ ss -tunap | awk '{print $5}' | cut -d: -f1 | sort | uniq -c | sort -rn | head -2
 ### auditd 规则
 
 ```bash
-# 监控网络连接
+# 监控网络连接（注意：arch=b64 仅适用于 x86_64，aarch64 需改为 arch=aarch64）
 -a always,exit -F arch=b64 -S connect -k network_connect
 -a always,exit -F arch=b64 -S accept -k network_accept
 -a always,exit -F arch=b64 -S bind -k network_bind

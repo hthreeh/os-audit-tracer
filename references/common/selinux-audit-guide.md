@@ -185,8 +185,8 @@ semodule -i mypolicy.pp
 ### 查看策略信息
 
 ```bash
-# 查看已安装的模块
-semodule -l
+# 查看已安装的模块（semodule -l 在新版已废弃，使用 --list-modules）
+semodule --list-modules 2>/dev/null || semodule -l
 
 # 查看类型强制规则
 sesearch --allow -t httpd_t

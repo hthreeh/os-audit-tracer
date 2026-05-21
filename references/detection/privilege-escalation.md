@@ -35,9 +35,9 @@ find / -perm -4000 -type f -exec stat --format="%n %y" {} \; 2>/dev/null
 ### auditd 规则
 
 ```bash
-# 监控 SUID/SGID 位设置
--a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F a1&06000 -k suid_change
--a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F a1&06000 -k sgid_change
+# 监控 SUID/SGID 位设置（注意：arch=b64 仅适用于 x86_64，aarch64 需改为 arch=aarch64）
+-a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F a1&04000 -k suid_change
+-a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -F a1&02000 -k sgid_change
 
 # 监控 /usr/bin 和 /usr/sbin 下文件属性变更
 -w /usr/bin -p x -k bin_exec
@@ -134,9 +134,8 @@ sudo awk 'BEGIN {system("/bin/bash")}'
 sudo less /etc/passwd
 # 在 less 中输入: !/bin/bash
 
-# 5. nmap 提权
-sudo nmap --interactive
-# nmap> !sh
+# 5. nmap NSE 脚本提权（--interactive 已在 nmap 5.10+ 移除）
+sudo nmap --script=<malicious-script>
 ```
 
 ### 判定阈值
@@ -159,7 +158,7 @@ sudo nmap --interactive
 lsmod | tail -20
 dmesg | grep -i "module"
 
-# 监控模块加载
+# 监控模块加载（注意：arch=b64 仅适用于 x86_64，aarch64 需改为 arch=aarch64）
 auditctl -a always,exit -F arch=b64 -S init_module -S finit_module -k module_load
 
 # 检查 eBPF 程序
@@ -185,7 +184,7 @@ ptrace 系统调用可附加到其他进程，注入代码执行。
 ### 检测命令
 
 ```bash
-# 监控 ptrace 调用
+# 监控 ptrace 调用（注意：arch=b64 仅适用于 x86_64，aarch64 需改为 arch=aarch64）
 auditctl -a always,exit -F arch=b64 -S ptrace -k ptrace_use
 
 # 检查 ptrace 使用

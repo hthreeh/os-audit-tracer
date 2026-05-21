@@ -29,10 +29,11 @@ ps auxf | grep -v grep | grep -iE "nc |ncat|bash -i|/tmp/|/dev/shm/|python.*-c|p
 
 ```bash
 # 记录当前系统状态
-date > /tmp/incident_$(hostname)_$(date +%Y%m%d_%H%M%S).txt
-ps auxf >> /tmp/incident_*.txt
-ss -tunap >> /tmp/incident_*.txt
-last -ai >> /tmp/incident_*.txt
+OUTFILE="/tmp/incident_$(hostname)_$(date +%Y%m%d_%H%M%S).txt"
+date > "$OUTFILE"
+ps auxf >> "$OUTFILE"
+ss -tunap >> "$OUTFILE"
+last -ai >> "$OUTFILE"
 
 # 保护审计日志（防止攻击者删除）
 cp -a /var/log/audit/ /tmp/audit_backup_$(date +%Y%m%d_%H%M%S)/

@@ -26,15 +26,15 @@ print_result() {
     case "$level" in
         PASS)
             echo -e "${GREEN}[PASS]${NC} $check: $message"
-            ((PASS_COUNT++))
+            PASS_COUNT=$((PASS_COUNT + 1))
             ;;
         WARN)
             echo -e "${YELLOW}[WARN]${NC} $check: $message"
-            ((WARN_COUNT++))
+            WARN_COUNT=$((WARN_COUNT + 1))
             ;;
         ALERT)
             echo -e "${RED}[ALERT]${NC} $check: $message"
-            ((ALERT_COUNT++))
+            ALERT_COUNT=$((ALERT_COUNT + 1))
             ;;
     esac
 }

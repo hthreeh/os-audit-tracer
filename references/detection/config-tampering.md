@@ -55,7 +55,7 @@ sshd -t
 | PermitRootLogin = yes | HIGH | 允许 root SSH 登录 |
 | PasswordAuthentication = yes | MEDIUM | 允许密码登录 |
 | PermitEmptyPasswords = yes | CRITICAL | 允许空密码 |
-| MaxAuthTries > 6 | MEDIUM | 暴力破解窗口过大 |
+| MaxAuthTries > 6 | LOW | 6 为 OpenSSH 默认值，安全加固建议设为 3-4 |
 | SSH 密钥文件权限 > 600 | HIGH | 密钥可能被读取 |
 | authorized_keys 被异常修改 | CRITICAL | 可能后门密钥 |
 | sshd_config 语法错误 | HIGH | SSH 服务可能异常 |

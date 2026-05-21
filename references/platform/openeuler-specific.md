@@ -90,18 +90,23 @@ openEuler 支持多种架构，审计规则需要适配：
 | 架构 | arch 值 | 说明 |
 |------|---------|------|
 | x86_64 | b64 | Intel/AMD 64 位 |
-| aarch64 | b64 | ARM 64 位（鲲鹏） |
-| RISC-V | b64 | RISC-V 64 位 |
-| LoongArch | b64 | 龙芯 |
+| aarch64 | aarch64 | ARM 64 位（鲲鹏） |
+| RISC-V | b64 | RISC-V 64 位（需确认内核支持） |
+| LoongArch | loongarch64 | 龙芯 |
 
-**注意**：虽然架构值都是 `b64`，但系统调用号可能不同。openEuler 的 auditd 会自动处理架构差异。
+**重要**：`arch` 值必须与目标架构匹配。`b64` 仅对应 x86_64，在 aarch64 上使用 `arch=b64` 的规则将静默匹配不到任何系统调用。
 
 ```bash
-# 检查当前架构
-uname -m
+# 检查当前架构并设置对应的 arch 值
+case "$(uname -m)" in
+    x86_64)       AUDIT_ARCH="b64" ;;
+    aarch64)      AUDIT_ARCH="aarch64" ;;
+    loongarch64)  AUDIT_ARCH="loongarch64" ;;
+    *)            AUDIT_ARCH="b64" ;;
+esac
 
 # 在 audit rules 中使用
--F arch=b64
+-F arch=$AUDIT_ARCH
 ```
 
 ## 5. 日志配置

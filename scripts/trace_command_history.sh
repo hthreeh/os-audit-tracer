@@ -33,15 +33,15 @@ SUSPICIOUS_PATTERNS=(
     'nc.*-e'
     'ncat.*-e'
     'socat'
-    'rm\s+.*-rf\s+/\*'
-    'rm\s+.*-rf\s+/boot'
-    'rm\s+.*-rf\s+/etc'
-    'rm\s+.*-rf\s+/usr'
-    'rm\s+.*-rf\s+/lib'
-    'rm\s+.*-rf\s+/bin'
-    'rm\s+.*-rf\s+/sbin'
-    'rm\s+.*-rf\s+~'
-    'rm\s+.*-rf\s+\$HOME'
+    'rm[[:space:]]+.*-rf[[:space:]]+/\*'
+    'rm[[:space:]]+.*-rf[[:space:]]+/boot'
+    'rm[[:space:]]+.*-rf[[:space:]]+/etc'
+    'rm[[:space:]]+.*-rf[[:space:]]+/usr'
+    'rm[[:space:]]+.*-rf[[:space:]]+/lib'
+    'rm[[:space:]]+.*-rf[[:space:]]+/bin'
+    'rm[[:space:]]+.*-rf[[:space:]]+/sbin'
+    'rm[[:space:]]+.*-rf[[:space:]]+~'
+    'rm[[:space:]]+.*-rf[[:space:]]+\$HOME'
     'mkfs\.'
     'dd.*of=/dev/'
     'chmod.*777'
@@ -306,7 +306,7 @@ parse_bash_history() {
         local line_num=0
         local hist_ts="N/A"
         while IFS= read -r cmd; do
-            ((line_num++))
+            line_num=$((line_num + 1))
             [ -z "$cmd" ] && continue
             # 检测时间戳行（#epoch 格式，如 #1705312985）
             if [[ "$cmd" =~ ^#([0-9]{10,})$ ]]; then

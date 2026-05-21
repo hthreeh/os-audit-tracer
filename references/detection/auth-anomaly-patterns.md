@@ -40,7 +40,7 @@ journalctl --since "1 hour ago" | grep "Failed password" | \
 
 # 统计每个用户的失败登录次数
 ausearch -m USER_AUTH -ts recent --just-failures 2>/dev/null | \
-  grep "acct=" | sed 's/.*acct="([^"]*)".*/\1/' | sort | uniq -c | sort -rn
+  grep "acct=" | sed -E 's/.*acct="([^"]*)".*/\1/' | sort | uniq -c | sort -rn
 
 # 检查短时间内大量失败（5 分钟内超过 5 次）
 grep "Failed password" /var/log/secure | \
@@ -128,9 +128,9 @@ Accepted publickey for {user} from {new_ip} port {port} ssh2
 # 获取用户历史登录 IP
 last -ai {user} | awk '{print $NF}' | sort | uniq -c | sort -rn
 
-# 检查首次出现的 IP
+# 检查首次出现的 IP（最近 7 天出现但 30 天基线中没有的 IP）
 comm -23 \
-  <(last -ai {user} | awk '{print $NF}' | sort -u) \
+  <(last -ai {user} --since "7 days ago" | awk '{print $NF}' | sort -u) \
   <(last -ai {user} --since "30 days ago" | awk '{print $NF}' | sort -u)
 
 # 检查地理位置异常（需要 GeoIP 数据库）
@@ -251,9 +251,13 @@ PAM [error] /etc/pam.d/{service}: bad config line
 # 检查 PAM 配置文件完整性
 rpm -Va | grep pam
 
-# 检查 PAM 模块是否存在
+# 检查 PAM 模块是否存在（适配多发行版路径）
+PAM_LIB_DIR=""
+for dir in /lib64/security /lib/x86_64-linux-gnu/security /lib/aarch64-linux-gnu/security /usr/lib/security; do
+  [ -d "$dir" ] && PAM_LIB_DIR="$dir" && break
+done
 for module in $(grep -rh "pam_" /etc/pam.d/ | awk '{print $2}' | sort -u); do
-  [ ! -f "/lib64/security/$module" ] && echo "MISSING: $module"
+  [ -n "$PAM_LIB_DIR" ] && [ ! -f "$PAM_LIB_DIR/$module" ] && echo "MISSING: $module"
 done
 
 # 检查可疑 PAM 配置

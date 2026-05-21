@@ -171,14 +171,14 @@ parse_audit_log() {
             acct=$(echo "$line" | grep -oP 'acct="[^"]*"' | head -1 | cut -d'"' -f2 || echo "unknown")
             detail="acct=$acct password/token change"
 
-        elif echo "$line" | grep -q 'type=ADD_USER\|type=ADD_GROUP'; then
+        elif echo "$line" | grep -qE 'type=ADD_USER|type=ADD_GROUP'; then
             event_type="USER_ADD"
             local acct uid
             acct=$(echo "$line" | grep -oP 'acct="[^"]*"' | head -1 | cut -d'"' -f2 || echo "unknown")
             uid=$(echo "$line" | grep -oP ' uid=\K\S+' || echo "-")
             detail="uid=$uid acct=$acct"
 
-        elif echo "$line" | grep -q 'type=DEL_USER\|type=DEL_GROUP'; then
+        elif echo "$line" | grep -qE 'type=DEL_USER|type=DEL_GROUP'; then
             event_type="USER_DEL"
             local acct uid
             acct=$(echo "$line" | grep -oP 'acct="[^"]*"' | head -1 | cut -d'"' -f2 || echo "unknown")

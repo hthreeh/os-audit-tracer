@@ -26,7 +26,7 @@ auditctl -l
 # 添加文件监控规则
 auditctl -w /etc/passwd -p wa -k identity
 
-# 添加系统调用规则
+# 添加系统调用规则（arch=b64 仅适用于 x86_64，aarch64 需改为 arch=aarch64）
 auditctl -a always,exit -F arch=b64 -S execve -k exec_cmd
 
 # 删除规则
@@ -38,7 +38,7 @@ auditctl -D
 # 从文件加载规则
 auditctl -R /etc/audit/rules.d/audit.rules
 
-# 查看规则状态
+# 查看审计系统状态（规则列表用 auditctl -l）
 auditctl -s
 ```
 
@@ -98,7 +98,7 @@ ausearch -m SYSCALL --no-pager
 ausearch -m EXECVE --no-pager
 ausearch -m AVC --no-pager
 ausearch -m USER_AUTH --no-pager
-ausearch -m LOGIN --no-pager
+ausearch -m USER_LOGIN --no-pager
 ```
 
 ### 按成功/失败搜索

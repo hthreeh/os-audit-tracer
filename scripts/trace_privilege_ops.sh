@@ -36,7 +36,7 @@ show_help() {
     echo "数据来源:"
     echo "  - ausearch -k privilege"
     echo "  - /var/log/secure sudo 条目"
-    echo "  - ausearch -m USER_CHAUDIT,ADD_USER,DEL_USER,ADD_GROUP,DEL_GROUP"
+    echo "  - ausearch -m USER_CHAUTHTOK,ADD_USER,DEL_USER,ADD_GROUP,DEL_GROUP"
     echo ""
     echo "检测事件:"
     echo "  - sudo 命令执行（含具体命令和参数）"
@@ -196,7 +196,11 @@ parse_audit_privilege() {
         exe=$(echo "$line" | grep -oP 'exe="[^"]*"' | head -1 | cut -d'"' -f2 || echo "-")
         comm=$(echo "$line" | grep -oP 'comm="[^"]*"' | head -1 | cut -d'"' -f2 || echo "-")
 
-        if [ -n "$TARGET_USER" ] && [ "$auid" != "$TARGET_USER" ]; then continue; fi
+        if [ -n "$TARGET_USER" ]; then
+            local target_uid
+            target_uid=$(id -u "$TARGET_USER" 2>/dev/null || echo "")
+            if [ -n "$target_uid" ] && [ "$auid" != "$target_uid" ]; then continue; fi
+        fi
 
         local risk="MEDIUM"
         echo "$readable_ts|PRIV_AUDIT|$risk|auid=$auid uid=$uid|exe=$exe comm=$comm"
@@ -232,7 +236,11 @@ parse_setuid_exec() {
         exe=$(echo "$line" | grep -oP 'exe="[^"]*"' | head -1 | cut -d'"' -f2 || echo "-")
         comm=$(echo "$line" | grep -oP 'comm="[^"]*"' | head -1 | cut -d'"' -f2 || echo "-")
 
-        if [ -n "$TARGET_USER" ] && [ "$auid" != "$TARGET_USER" ]; then continue; fi
+        if [ -n "$TARGET_USER" ]; then
+            local target_uid
+            target_uid=$(id -u "$TARGET_USER" 2>/dev/null || echo "")
+            if [ -n "$target_uid" ] && [ "$auid" != "$target_uid" ]; then continue; fi
+        fi
 
         echo "$readable_ts|SETUID|HIGH|auid=$auid uid=$uid|exe=$exe comm=$comm"
     done >> "$TMPFILE"
@@ -250,7 +258,7 @@ parse_user_changes() {
 
     echo "[5/5] 解析用户/组变更 (ADD_USER, DEL_USER, ADD_GROUP, DEL_GROUP)..."
 
-    local ausearch_args=(-m ADD_USER,DEL_USER,ADD_GROUP,DEL_GROUP,USER_CHAUDIT -ts "$START_TIME" -te "$END_TIME" --input-logs --no-pager)
+    local ausearch_args=(-m ADD_USER,DEL_USER,ADD_GROUP,DEL_GROUP,USER_CHAUTHTOK -ts "$START_TIME" -te "$END_TIME" --input-logs --no-pager)
     ausearch "${ausearch_args[@]}" 2>/dev/null | while IFS= read -r line; do
         local epoch_ts readable_ts
         epoch_ts=$(echo "$line" | grep -oP 'msg=audit\(\K[0-9.]+' || echo "")
@@ -262,7 +270,11 @@ parse_user_changes() {
         auid=$(echo "$line" | grep -oP 'auid=\K\S+' || echo "-")
         exe=$(echo "$line" | grep -oP 'exe="[^"]*"' | head -1 | cut -d'"' -f2 || echo "-")
 
-        if [ -n "$TARGET_USER" ] && [ "$auid" != "$TARGET_USER" ]; then continue; fi
+        if [ -n "$TARGET_USER" ]; then
+            local target_uid
+            target_uid=$(id -u "$TARGET_USER" 2>/dev/null || echo "")
+            if [ -n "$target_uid" ] && [ "$auid" != "$target_uid" ]; then continue; fi
+        fi
 
         echo "$readable_ts|$event_type|HIGH|auid=$auid|exe=$exe"
     done >> "$TMPFILE"
@@ -325,7 +337,7 @@ TOTAL_EVENTS=$(wc -l < "$RESULTS_FILE" 2>/dev/null || echo 0)
 SUDO_COUNT=$(grep -c '|SUDO|' "$RESULTS_FILE" 2>/dev/null || echo 0)
 SU_COUNT=$(grep -c '|SU_SWITCH|' "$RESULTS_FILE" 2>/dev/null || echo 0)
 SETUID_COUNT=$(grep -c '|SETUID|' "$RESULTS_FILE" 2>/dev/null || echo 0)
-USER_CHANGE_COUNT=$(grep -cE 'ADD_USER|DEL_USER|ADD_GROUP|DEL_GROUP|USER_CHAUDIT' "$RESULTS_FILE" 2>/dev/null || echo 0)
+USER_CHANGE_COUNT=$(grep -cE 'ADD_USER|DEL_USER|ADD_GROUP|DEL_GROUP|USER_CHAUTHTOK' "$RESULTS_FILE" 2>/dev/null || echo 0)
 HIGH_RISK=$(grep -c '|HIGH|' "$RESULTS_FILE" 2>/dev/null || echo 0)
 
 echo ""

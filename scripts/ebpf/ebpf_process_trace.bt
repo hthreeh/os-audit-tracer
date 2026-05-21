@@ -23,7 +23,6 @@ BEGIN {
 }
 
 tracepoint:syscalls:sys_enter_execve {
-    $ts = nsecs;
     $pid = pid;
     $ppid = curtask->parent->tgid;
     $comm = comm;
@@ -57,7 +56,7 @@ tracepoint:syscalls:sys_enter_execve {
 
 tracepoint:syscalls:sys_exit_execve /args->ret != 0/ {
     printf("[%s] EXEC FAILED: pid=%d comm=%s ret=%d\n",
-           strftime("%H:%M:%S", nsecs), pid, comm, args->ret);
+           time("%H:%M:%S"), pid, comm, args->ret);
 }
 
 END {

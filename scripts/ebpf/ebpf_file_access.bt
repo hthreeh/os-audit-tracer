@@ -22,7 +22,7 @@ BEGIN {
 
 // 监控 /etc/passwd
 tracepoint:syscalls:sys_enter_openat
-/str(args->filename) == "/etc/passwd"/ {
+/args->filename != 0 && str(args->filename) == "/etc/passwd"/ {
     @access_by_file["/etc/passwd"] = count();
     @access_by_comm[comm] = count();
     time("%H:%M:%S");
@@ -31,7 +31,7 @@ tracepoint:syscalls:sys_enter_openat
 
 // 监控 /etc/shadow
 tracepoint:syscalls:sys_enter_openat
-/str(args->filename) == "/etc/shadow"/ {
+/args->filename != 0 && str(args->filename) == "/etc/shadow"/ {
     @access_by_file["/etc/shadow"] = count();
     @access_by_comm[comm] = count();
     @alert_count["shadow_access"] = count();
@@ -43,8 +43,8 @@ tracepoint:syscalls:sys_enter_openat
 
 // 监控 /etc/sudoers
 tracepoint:syscalls:sys_enter_openat
-/str(args->filename) == "/etc/sudoers" ||
- strcontains(str(args->filename), "/etc/sudoers.d/")/ {
+/args->filename != 0 && (str(args->filename) == "/etc/sudoers" ||
+ strcontains(str(args->filename), "/etc/sudoers.d/"))/ {
     @access_by_file[str(args->filename)] = count();
     @access_by_comm[comm] = count();
     @alert_count["sudoers_access"] = count();
@@ -55,9 +55,9 @@ tracepoint:syscalls:sys_enter_openat
 
 // 监控 SSH 密钥文件
 tracepoint:syscalls:sys_enter_openat
-/strcontains(str(args->filename), ".ssh/authorized_keys") ||
+/args->filename != 0 && (strcontains(str(args->filename), ".ssh/authorized_keys") ||
  strcontains(str(args->filename), ".ssh/id_rsa") ||
- strcontains(str(args->filename), ".ssh/id_ed25519")/ {
+ strcontains(str(args->filename), ".ssh/id_ed25519"))/ {
     @access_by_file[".ssh/keys"] = count();
     @access_by_comm[comm] = count();
     @alert_count["ssh_key_access"] = count();
@@ -68,7 +68,7 @@ tracepoint:syscalls:sys_enter_openat
 
 // 监控 /etc/ssh/sshd_config
 tracepoint:syscalls:sys_enter_openat
-/str(args->filename) == "/etc/ssh/sshd_config"/ {
+/args->filename != 0 && str(args->filename) == "/etc/ssh/sshd_config"/ {
     @access_by_file["/etc/ssh/sshd_config"] = count();
     @access_by_comm[comm] = count();
     time("%H:%M:%S");
@@ -77,9 +77,9 @@ tracepoint:syscalls:sys_enter_openat
 
 // 监控 crontab 文件
 tracepoint:syscalls:sys_enter_openat
-/str(args->filename) == "/etc/crontab" ||
+/args->filename != 0 && (str(args->filename) == "/etc/crontab" ||
  strcontains(str(args->filename), "/etc/cron.d/") ||
- strcontains(str(args->filename), "/var/spool/cron/")/ {
+ strcontains(str(args->filename), "/var/spool/cron/"))/ {
     @access_by_file["crontab"] = count();
     @access_by_comm[comm] = count();
     @alert_count["cron_access"] = count();
@@ -90,7 +90,7 @@ tracepoint:syscalls:sys_enter_openat
 
 // 监控内核模块目录
 tracepoint:syscalls:sys_enter_openat
-/strcontains(str(args->filename), "/lib/modules/") &&
+/args->filename != 0 && strcontains(str(args->filename), "/lib/modules/") &&
  strcontains(str(args->filename), ".ko")/ {
     @access_by_file["/lib/modules/*.ko"] = count();
     @access_by_comm[comm] = count();
@@ -100,7 +100,7 @@ tracepoint:syscalls:sys_enter_openat
 
 // 监控审计日志本身
 tracepoint:syscalls:sys_enter_openat
-/strcontains(str(args->filename), "/var/log/audit/")/ {
+/args->filename != 0 && strcontains(str(args->filename), "/var/log/audit/")/ {
     @access_by_file["/var/log/audit/"] = count();
     @access_by_comm[comm] = count();
     @alert_count["audit_log_access"] = count();
@@ -121,7 +121,7 @@ END {
     print(@access_by_comm, 20);
 
     printf("\n--- 告警事件统计 ---\n");
-    if (count(@alert_count) > 0) {
+    if (@alert_count > 0) {
         print(@alert_count);
     } else {
         printf("  (无告警)\n");

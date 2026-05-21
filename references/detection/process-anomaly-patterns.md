@@ -36,7 +36,7 @@ done
 ### auditd 规则
 
 ```bash
-# 监控从 /tmp 执行的程序
+# 监控从 /tmp 执行的程序（注意：arch=b64 仅适用于 x86_64，aarch64 需改为 arch=aarch64）
 -a always,exit -F arch=b64 -S execve -F dir=/tmp -k tmp_exec
 -a always,exit -F arch=b64 -S execve -F dir=/dev/shm -k shm_exec
 -a always,exit -F arch=b64 -S execve -F dir=/var/tmp -k vartmp_exec
@@ -168,7 +168,7 @@ ps aux | grep -iE "python.*-c|perl.*-e|ruby.*-e" | grep -v grep
 diff <(ls /proc | grep -E "^[0-9]+$" | sort -n) <(ps -eo pid --no-headers | awk '{print $1}' | sort -n)
 ```
 
-### 判定阈志
+### 判定阈值
 
 | 条件 | 风险等级 | 说明 |
 |------|----------|------|

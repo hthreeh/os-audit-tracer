@@ -92,7 +92,7 @@ case "$ARCH" in
         ;;
     aarch64|arm64)
         ARCH="aarch64"
-        AUDIT_ARCH="b64"
+        AUDIT_ARCH="aarch64"
         ;;
     riscv64)
         ARCH="riscv64"
@@ -100,7 +100,7 @@ case "$ARCH" in
         ;;
     loongarch64)
         ARCH="loongarch64"
-        AUDIT_ARCH="b64"
+        AUDIT_ARCH="loongarch64"
         ;;
     *)
         AUDIT_ARCH="b64"

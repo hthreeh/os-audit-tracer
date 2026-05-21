@@ -4,7 +4,7 @@
 
 | 日志源 | 路径 | 格式 | 内容 | 优先级 |
 |--------|------|------|------|--------|
-| 审计日志 | `/var/log/audit/audit.log` | 二进制/文本 | 所有 auditd 事件 | 最高 |
+| 审计日志 | `/var/log/audit/audit.log` | 文本 | 所有 auditd 事件 | 最高 |
 | 安全日志 | `/var/log/secure` | 文本 | 认证、授权事件 | 高 |
 | 系统日志 | `/var/log/messages` | 文本 | 系统级事件、内核消息 | 高 |
 | 定时任务 | `/var/log/cron` | 文本 | cron 任务执行 | 中 |
@@ -32,7 +32,7 @@
 | LOGIN | 登录事件 | pid, uid, subj, acct |
 | AVC | SELinux 拒绝 | avc, denied, scontext, tcontext, tclass |
 | CONFIG_CHANGE | 配置变更 | op, key, list, res |
-| SYSCALL_EXECVE | execve 详情 | comm, exe, key |
+| SYSCALL + EXECVE | execve 详情（两个关联事件） | comm, exe, key |
 
 ### SYSCALL 事件示例
 
@@ -69,8 +69,14 @@ type=EXECVE msg=audit(1705312985.123:456): argc=3 a0="useradd" a1="-m" a2="backd
 
 ### SOCKADDR 事件示例
 
+原始格式（audit.log 中的实际内容）：
 ```
-type=SOCKADDR msg=audit(1705312985.123:456): saddr_fam=inet laddr=192.168.1.10 lport=22 
+type=SOCKADDR msg=audit(1705312985.123:456): saddr=02000050C0A8010A0000000000000000
+```
+
+使用 `ausearch -i` 解读后的人类可读格式：
+```
+type=SOCKADDR msg=audit(1705312985.123:456): saddr_fam=inet laddr=192.168.1.10 lport=22
 raddr=192.168.1.100 rport=54321
 ```
 

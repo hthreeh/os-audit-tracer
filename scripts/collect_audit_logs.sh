@@ -186,14 +186,21 @@ collect_login_records() {
 
     # wtmp - 按时间范围过滤
     if [ -f /var/log/wtmp ]; then
-        last -s "$START_TIME" -t "$END_TIME" > "$OUTPUT_DIR/last.log" 2>/dev/null || \
+        # last -s/-t 需要 YYYYMMDDHHMMSS 格式
+        local last_start last_end
+        last_start=$(echo "$START_TIME" | sed 's/[-: ]//g;s/^\([0-9]\{14\}\).*/\1/')
+        last_end=$(echo "$END_TIME" | sed 's/[-: ]//g;s/^\([0-9]\{14\}\).*/\1/')
+        last -s "$last_start" -t "$last_end" > "$OUTPUT_DIR/last.log" 2>/dev/null || \
         last > "$OUTPUT_DIR/last.log" 2>/dev/null || true
         echo "  last.log 收集完成"
     fi
 
     # btmp - 按时间范围过滤
     if [ -f /var/log/btmp ]; then
-        lastb -s "$START_TIME" -t "$END_TIME" > "$OUTPUT_DIR/lastb.log" 2>/dev/null || \
+        local last_start last_end
+        last_start=$(echo "$START_TIME" | sed 's/[-: ]//g;s/^\([0-9]\{14\}\).*/\1/')
+        last_end=$(echo "$END_TIME" | sed 's/[-: ]//g;s/^\([0-9]\{14\}\).*/\1/')
+        lastb -s "$last_start" -t "$last_end" > "$OUTPUT_DIR/lastb.log" 2>/dev/null || \
         lastb > "$OUTPUT_DIR/lastb.log" 2>/dev/null || true
         echo "  lastb.log 收集完成"
     fi

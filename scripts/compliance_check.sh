@@ -131,7 +131,8 @@ generate_text_report() {
     report+="  未通过: $FAIL\n"
     report+="  警告: $WARN\n"
     report+="  不适用: $NA\n"
-    report+="  合规率: $(( PASS * 100 / (TOTAL - NA > 0 ? TOTAL - NA : 1) ))%\n"
+    local effective=$((TOTAL - NA)); [ "$effective" -eq 0 ] && effective=1
+    report+="  合规率: $(( PASS * 100 / effective ))%\n"
 
     echo -e "$report"
 }
@@ -154,7 +155,8 @@ generate_markdown_report() {
     report+="| 未通过 | $FAIL |\n"
     report+="| 警告 | $WARN |\n"
     report+="| 不适用 | $NA |\n"
-    report+="| 合规率 | $(( PASS * 100 / (TOTAL - NA > 0 ? TOTAL - NA : 1) ))% |\n\n"
+    local effective=$((TOTAL - NA)); [ "$effective" -eq 0 ] && effective=1
+    report+="| 合规率 | $(( PASS * 100 / effective ))% |\n\n"
 
     report+="## 详细检查结果\n\n"
     report+="| 编号 | 类别 | 检查项 | 状态 | 说明 |\n"
@@ -204,7 +206,8 @@ generate_json_report() {
     echo "    \"fail\": $FAIL,"
     echo "    \"warn\": $WARN,"
     echo "    \"na\": $NA,"
-    echo "    \"compliance_rate\": $(( PASS * 100 / (TOTAL - NA > 0 ? TOTAL - NA : 1) ))"
+    local effective=$((TOTAL - NA)); [ "$effective" -eq 0 ] && effective=1
+    echo "    \"compliance_rate\": $(( PASS * 100 / effective ))"
     echo "  },"
     echo "  \"results\": ["
 
@@ -239,8 +242,8 @@ check_identity_auth() {
     fi
 
     # 4.1.2 身份鉴别方式
-    if grep -q "^PasswordAuthentication yes" /etc/ssh/sshd_config 2>/dev/null || \
-       grep -q "^PubkeyAuthentication yes" /etc/ssh/sshd_config 2>/dev/null; then
+    if grep -Eq '^[[:space:]]*PasswordAuthentication[[:space:]]+yes' /etc/ssh/sshd_config 2>/dev/null || \
+       grep -Eq '^[[:space:]]*PubkeyAuthentication[[:space:]]+yes' /etc/ssh/sshd_config 2>/dev/null; then
         log_result "4.1.2" "身份鉴别" "身份鉴别方式" "PASS" "SSH 配置了认证方式"
     else
         log_result "4.1.2" "身份鉴别" "身份鉴别方式" "WARN" "SSH 认证配置不明确"
@@ -304,7 +307,7 @@ check_access_control() {
 
     # 4.2.2 sudo 配置
     local nopasswd_count
-    nopasswd_count=$(grep -rc "NOPASSWD" /etc/sudoers /etc/sudoers.d/ 2>/dev/null | awk -F: '{sum+=$2} END{print sum+0}')
+    nopasswd_count=$(grep -rc "^[^#]*NOPASSWD" /etc/sudoers /etc/sudoers.d/ 2>/dev/null | awk -F: '{sum+=$2} END{print sum+0}')
     if [ "$nopasswd_count" -le 1 ]; then
         log_result "4.2.2" "访问控制" "sudo 最小权限" "PASS" "NOPASSWD 配置合理"
     else

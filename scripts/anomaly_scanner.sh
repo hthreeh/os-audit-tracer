@@ -54,16 +54,16 @@ print_result() {
     case "$level" in
         PASS)
             echo -e "${GREEN}[PASS]${NC} [$category] $message"
-            ((PASS_COUNT++))
+            PASS_COUNT=$((PASS_COUNT + 1))
             ;;
         WARN)
             echo -e "${YELLOW}[WARN]${NC} [$category] $message"
-            ((WARN_COUNT++))
+            WARN_COUNT=$((WARN_COUNT + 1))
             RISK_SCORE=$((RISK_SCORE + 10))
             ;;
         ALERT)
             echo -e "${RED}[ALERT]${NC} [$category] $message"
-            ((ALERT_COUNT++))
+            ALERT_COUNT=$((ALERT_COUNT + 1))
             RISK_SCORE=$((RISK_SCORE + 30))
             ;;
     esac
@@ -309,7 +309,9 @@ check_config_tampering() {
 
     # 检查 SSH authorized_keys
     local key_files=0
-    key_files=$(find /root/.ssh /home/*/.ssh -name "authorized_keys" -mtime -1 2>/dev/null | wc -l)
+    local ssh_dirs="/root/.ssh"
+    [ -d /home ] && ssh_dirs="$ssh_dirs /home/*/.ssh"
+    key_files=$(find $ssh_dirs -name "authorized_keys" -mtime -1 2>/dev/null | wc -l)
 
     if [ "$key_files" -gt 0 ]; then
         print_result "ALERT" "配置" "检测到最近修改的 SSH authorized_keys ($key_files 个)"

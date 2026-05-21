@@ -28,16 +28,16 @@ EOF
 }
 
 generate_privilege_rules() {
-    cat <<'EOF'
+    cat <<EOF
 # privilege: 特权命令执行
--a always,exit -F arch=b64 -S execve -F euid=0 -F auid!=0 -F auid!=4294967295 -k privilege
--a always,exit -F arch=b64 -S setuid -S setgid -S setreuid -S setregid -k privilege_id_change
+-a always,exit -F arch=$AUDIT_ARCH -S execve -F euid=0 -F auid!=0 -F auid!=4294967295 -k privilege
+-a always,exit -F arch=$AUDIT_ARCH -S setuid -S setgid -S setreuid -S setregid -k privilege_id_change
 # exec_cmd: 所有用户命令执行（用于 trace_command_history.sh）
--a always,exit -F arch=b64 -S execve -k exec_cmd
+-a always,exit -F arch=$AUDIT_ARCH -S execve -k exec_cmd
 # attr_change: 文件属性变更（chmod/chown/chattr）
--a always,exit -F arch=b64 -S chmod -S fchmod -S fchmodat -k attr_change
--a always,exit -F arch=b64 -S chown -S fchown -S fchownat -S lchown -k owner_change
--a always,exit -F arch=b64 -S setxattr -S lsetxattr -S fsetxattr -S removexattr -k xattr_change
+-a always,exit -F arch=$AUDIT_ARCH -S chmod -S fchmod -S fchmodat -k attr_change
+-a always,exit -F arch=$AUDIT_ARCH -S chown -S fchown -S fchownat -S lchown -k owner_change
+-a always,exit -F arch=$AUDIT_ARCH -S setxattr -S lsetxattr -S fsetxattr -S removexattr -k xattr_change
 EOF
 }
 
@@ -54,28 +54,28 @@ EOF
 }
 
 generate_network_rules() {
-    cat <<'EOF'
+    cat <<EOF
 # network: 网络活动
--a always,exit -F arch=b64 -S connect -S bind -S accept -k network
+-a always,exit -F arch=$AUDIT_ARCH -S connect -S bind -S accept -k network
 -w /etc/iptables/ -p wa -k firewall
 -w /etc/firewalld/ -p wa -k firewall
 EOF
 }
 
 generate_process_rules() {
-    cat <<'EOF'
+    cat <<EOF
 # process: 进程与模块
--a always,exit -F arch=b64 -S execve -F dir=/tmp -k process_suspicious
--a always,exit -F arch=b64 -S execve -F dir=/dev/shm -k process_suspicious
--a always,exit -F arch=b64 -S init_module -S finit_module -S delete_module -k module
+-a always,exit -F arch=$AUDIT_ARCH -S execve -F dir=/tmp -k process_suspicious
+-a always,exit -F arch=$AUDIT_ARCH -S execve -F dir=/dev/shm -k process_suspicious
+-a always,exit -F arch=$AUDIT_ARCH -S init_module -S finit_module -S delete_module -k module
 EOF
 }
 
 generate_config_rules() {
-    cat <<'EOF'
+    cat <<EOF
 # config: 系统配置
--a always,exit -F arch=b64 -S adjtimex -S settimeofday -S clock_settime -k time_change
--a always,exit -F arch=b64 -S sethostname -S setdomainname -k hostname_change
+-a always,exit -F arch=$AUDIT_ARCH -S adjtimex -S settimeofday -S clock_settime -k time_change
+-a always,exit -F arch=$AUDIT_ARCH -S sethostname -S setdomainname -k hostname_change
 -w /etc/resolv.conf -p wa -k dns_change
 -w /etc/hosts -p wa -k dns_change
 -w /etc/ssh/sshd_config -p wa -k ssh_config
@@ -120,9 +120,9 @@ EOF
 }
 
 generate_media_rules() {
-    cat <<'EOF'
+    cat <<EOF
 # media: 可移动介质
--a always,exit -F arch=b64 -S mount -S umount2 -k media
+-a always,exit -F arch=$AUDIT_ARCH -S mount -S umount2 -k media
 EOF
 }
 
@@ -271,11 +271,21 @@ if [ "$PLATFORM" = "auto" ]; then
     fi
 fi
 
+# --- 架构检测 ---
+
+case "$(uname -m)" in
+    x86_64|amd64)  AUDIT_ARCH="b64" ;;
+    aarch64|arm64) AUDIT_ARCH="aarch64" ;;
+    loongarch64)   AUDIT_ARCH="loongarch64" ;;
+    *)             AUDIT_ARCH="b64" ;;
+esac
+
 echo "=========================================="
 echo "  审计规则部署"
 echo "=========================================="
 echo "Profile: $PROFILE"
 echo "Platform: $PLATFORM"
+echo "Architecture: $(uname -m) (audit arch=$AUDIT_ARCH)"
 echo "Categories: $CATEGORIES"
 echo "=========================================="
 echo ""

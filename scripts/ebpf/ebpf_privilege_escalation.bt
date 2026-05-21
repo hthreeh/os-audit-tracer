@@ -104,8 +104,11 @@ tracepoint:syscalls:sys_enter_setresgid {
 
 // 监控 sudo/su 执行
 tracepoint:syscalls:sys_enter_execve
-/(strcontains(str(args->filename), "/sudo") ||
-  strcontains(str(args->filename), "/su"))/ {
+/(args->filename != 0 &&
+  (str(args->filename) == "/usr/bin/sudo" ||
+   str(args->filename) == "/usr/bin/su" ||
+   str(args->filename) == "/usr/sbin/sudo" ||
+   strcontains(str(args->filename), "/sudoedit")))/ {
     @syscall_count["sudo/su_exec"] = count();
     @syscall_by_comm[comm] = count();
 
@@ -165,7 +168,7 @@ END {
     print(@syscall_by_comm, 20);
 
     printf("\n--- 告警事件统计 ---\n");
-    if (count(@alert_count) > 0) {
+    if (@alert_count > 0) {
         print(@alert_count);
     } else {
         printf("  (无告警)\n");

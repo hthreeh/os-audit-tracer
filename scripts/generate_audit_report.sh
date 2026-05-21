@@ -344,7 +344,7 @@ case "$REPORT_TYPE" in
 esac
 
 # 写入文件
-echo -e "$report_content" > "$OUTPUT_FILE"
+printf '%s\n' "$report_content" > "$OUTPUT_FILE"
 
 echo ""
 echo -e "${GREEN}[完成]${NC} 报告已生成: $OUTPUT_FILE"

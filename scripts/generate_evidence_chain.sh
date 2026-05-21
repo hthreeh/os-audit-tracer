@@ -764,7 +764,7 @@ find_related_events() {
     # 最多返回5个关联事件
     local result=""
     local count=0
-    for r in "${related[@]:-}"; do
+    for r in "${related[@]+"${related[@]}"}"; do
         [[ -z "${r}" ]] && continue
         if [[ -z "${result}" ]]; then
             result="${r}"
@@ -878,7 +878,7 @@ assess_risk() {
 
     # 输出
     echo "${risk_score}|${risk_level}"
-    for f in "${findings[@]:-}"; do
+    for f in "${findings[@]+"${findings[@]}"}"; do
         [[ -n "${f}" ]] && echo "FINDING:${f}"
     done
     echo "STATS:auth_failures=${auth_failures} auth_success=${auth_success} anomalies=${anom_count} config=${config_count} net=${net_count} exec=${exec_count}"

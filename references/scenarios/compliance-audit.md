@@ -49,8 +49,8 @@
 | 4.1.1 | 用户标识唯一性 | `awk -F: '{print $3}' /etc/passwd \| sort -n \| uniq -d` | UID 无重复 |
 | 4.1.2 | 用户身份鉴别 | `grep "^PasswordAuthentication" /etc/ssh/sshd_config` | 使用密码或密钥认证 |
 | 4.1.3 | 登录失败处理 | `grep "pam_faillock\|pam_tally2" /etc/pam.d/*` | 配置失败锁定策略 |
-| 4.1.4 | 远程管理加密 | `grep "^Protocol" /etc/ssh/sshd_config` | 使用 SSH v2 |
-| 4.1.5 | 密码复杂度 | `grep "pam_pwquality\|pam_cracklib" /etc/pam.d/*` | 配置密码复杂度策略 |
+| 4.1.4 | 远程管理加密 | `sshd -T 2>/dev/null \| grep protocol` | 使用 SSH v2（OpenSSH 7.4+ 已移除 Protocol 指令） |
+| 4.1.5 | 密码复杂度 | `grep "pam_pwquality" /etc/pam.d/*` | 配置密码复杂度策略（pam_cracklib 为旧版） |
 | 4.1.6 | 密码有效期 | `grep "^PASS_MAX_DAYS\|^PASS_MIN_DAYS\|^PASS_MIN_LEN" /etc/login.defs` | 密码最长有效期 ≤90 天 |
 | 4.1.7 | 默认账户处理 | `awk -F: '$3 < 1000 && $7 != "/sbin/nologin" {print $1}' /etc/passwd` | 禁用或删除默认账户 |
 
@@ -60,7 +60,7 @@
 |------|--------|----------|----------|
 | 4.2.1 | 账户权限分配 | `grep "^PermitRootLogin" /etc/ssh/sshd_config` | root 不允许远程登录 |
 | 4.2.2 | 最小权限原则 | `grep "NOPASSWD" /etc/sudoers` | sudo 配置合理 |
-| 4.2.3 | 默认权限 | `umask` | 默认 umask 027 或 077 |
+| 4.2.3 | 默认权限 | `grep -E "^UMASK" /etc/login.defs; grep -rh "umask" /etc/profile /etc/profile.d/ 2>/dev/null` | 默认 umask 027 或 077 |
 | 4.2.4 | 敏感文件权限 | `ls -la /etc/passwd /etc/shadow /etc/group` | 权限设置正确 |
 | 4.2.5 | 关键目录权限 | `ls -la /etc/audit/ /var/log/audit/` | 审计目录权限合理 |
 
@@ -69,7 +69,7 @@
 | 编号 | 检查项 | 检查命令 | 判定标准 |
 |------|--------|----------|----------|
 | 4.3.1 | 审计策略覆盖 | `auditctl -l` | 覆盖用户登录、命令执行、文件访问 |
-| 4.3.2 | 审计日志保护 | `ls -la /var/log/audit/` | 日志文件权限 600 |
+| 4.3.2 | 审计日志保护 | `ls -la /var/log/audit/` | 日志文件权限 600，目录权限 700 |
 | 4.3.3 | 审计日志存储 | `df -h /var/log/audit/` | 有足够存储空间 |
 | 4.3.4 | 审计日志备份 | 检查备份策略 | 定期备份审计日志 |
 | 4.3.5 | 审计日志保留 | `cat /etc/logrotate.d/audit` | 保留至少 6 个月 |
